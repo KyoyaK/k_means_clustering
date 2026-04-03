@@ -1,0 +1,136 @@
+"""
+Description: This code visualizes the k-means clustering
+algorithm by animating the shifts in the clusters 
+using matplotlib and also graphing the inertia
+over each iteration
+
+
+Bugs: None known. 
+"""
+
+
+import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+import numpy as np
+
+
+def find_distances(centroids_pos, data_points):
+    """Returns an array of distances from each data point to each centroid"""
+    return np.sum((data_points[:, None, :] - centroids_pos[None, :, :])**2, axis=2)
+
+
+def assign_clusters(data_points, k, squared_distances):
+    """Takes in data, number of clusters, and the distances
+    to assign each data point to a cluster"""
+    groups_indices = np.argmin(squared_distances, axis=1)
+    clusters = [data_points[groups_indices==i] for i in range(k)]
+    return clusters
+
+    
+def find_averages(clusters):
+    """Finds the average value of each cluster. If a cluster is empty, 
+    it adds a new, random centroid to compensate for the lost one"""
+    averages = []
+    rng = np.random.default_rng()
+    for group in clusters:
+        if len(group) == 0:
+            #add random centroid
+            averages.append(rng.uniform(-100, 100, size=(2)))
+        else:
+            averages.append(np.mean(group, axis=0))
+    return np.array(averages)
+
+
+def find_inertia(distances_sq):
+    """Finds the inertia, the sum of all distances squared from each 
+    data point to its respective centroid"""
+    min_dists = np.min(distances_sq, axis=1)
+    return np.sum(min_dists)
+
+
+
+fig, ax = plt.subplots()
+fig2, ax2 = plt.subplots()
+
+ax2.set_xlim(0, 15)
+ax2.set_ylim(0, 1000000)
+
+group_points = []
+rng = np.random.default_rng()
+
+
+iterations = []
+inertias_history = []
+
+data = rng.uniform(-100, 100, size=(150, 2))
+k=10
+
+inertias_plot = ax2.plot(iterations ,inertias_history, c="0", label="iterations")[0]
+centroid_points = ax.scatter([], [], c="0")
+average_points = ax.scatter([], [], c="r")
+group_points=[]
+ax2.legend()
+
+
+
+def init():
+    global centroids, group_points
+
+    centroids = rng.uniform(-100, 100, (k, 2))
+    distances_sq = find_distances(centroids, data)
+    groups = assign_clusters(data, k, distances_sq)
+    averages = find_averages(groups)
+    inertia = find_inertia(distances_sq)
+
+    iterations.clear()
+    inertias_history.clear()
+    iterations.append(0)
+    inertias_history.append(inertia)
+
+    centroid_points.set_offsets(centroids)
+    average_points.set_offsets(averages)
+    inertias_plot.set_xdata(iterations)
+    inertias_plot.set_ydata(inertias_history)
+
+    group_points.clear()
+
+    for _ in range(k):
+        group_x = ax.scatter(groups[_][:, 0], groups[_][:, 1], c=f"C{_}")
+        group_points.append(group_x)
+    
+    return (centroid_points, average_points, inertias_plot) + tuple(group_points)
+    
+
+def animate(frame):
+    global centroids, group_points
+
+    centroid_points.set_offsets(centroids)
+
+    distances_sq = find_distances(centroids, data)
+    groups = assign_clusters(data, k, distances_sq)
+    averages = find_averages(groups)
+    centroids = averages
+    
+    inertia = find_inertia(distances_sq)
+
+
+    iterations.append(frame+1)
+    inertias_history.append(inertia)
+
+    
+    inertias_plot.set_xdata(iterations)
+    inertias_plot.set_ydata(inertias_history)
+    average_points.set_offsets(averages)
+
+    for _ in range(k):
+        group_points[_].set_offsets(groups[_])
+    
+    return (centroid_points, average_points, inertias_plot) + tuple(group_points)
+
+
+anim = animation.FuncAnimation(fig=fig, frames=10, func=animate, init_func=init,
+                               interval=150, blit=True, repeat=True)
+
+
+
+plt.show()
